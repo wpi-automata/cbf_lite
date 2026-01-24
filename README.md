@@ -1,6 +1,6 @@
-# cbf_lite Conda Environment Setup
+# cbf_lite: Overview and Setup
 
-This repo implements CBF (Control Barrier Function) QPs (Quadtratic Programs) for several scenarios, summarized as follows: 
+This repo implements CBF (Control Barrier Function) QPs (Quadtratic Programs) for setpoint and trajectory tracking scenarios. The code in this repo, especially the sensor and estimator models, were adapted from https://github.com/bardhh/cbfkit. This repo specifically implements the GEKF (https://ietresearch.onlinelibrary.wiley.com/doi/10.1049/iet-spr.2013.0161) and the Belief CBF (https://arxiv.org/abs/2309.06499). Please view our corresponding paper: https://arxiv.org/abs/2510.14100. 
 
 ## Simulation Scripts Overview
 
@@ -19,7 +19,8 @@ This repo implements CBF (Control Barrier Function) QPs (Quadtratic Programs) fo
 | `sim_mixed_dynamics_double_int.py` | CLF | 2× Belief (2nd Order) | 2D Double Integrator (Prediction) / 2D Dubins (Actuation) | Standard / Multiplicative | EKF / GEKF | Setpoint tracking in y-dim | jaxopt |
 
 
-## Create the Environment
+## Setup
+### Create the Environment
 
 To get started, it's is recommended to create a conda environment.
 
@@ -28,7 +29,7 @@ conda create -n cbf_lite python=3.12 -y
 conda activate cbf_lite
 ```
 
-## Install Dependencies
+### Install Dependencies
 
 This repo mainly depends on `jaxopt` and `jax` for implementing QPs. Please install the following packages in your conda environment to run all the scripts:
 
@@ -42,7 +43,7 @@ pip install \
     tqdm
 ```
 
-## Verify Installation
+### Verify Installation
 
 ```bash
 python -c "import numpy, matplotlib, cvxpy, jax, jaxopt, tqdm; print('cbf_lite environment ready')"
