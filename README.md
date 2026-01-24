@@ -1,6 +1,6 @@
 # cbf_lite: Overview and Setup
 
-This repo implements CBF (Control Barrier Function) QPs (Quadtratic Programs) for setpoint and trajectory tracking scenarios. The code in this repo, especially the sensor and estimator models, were adapted from https://github.com/bardhh/cbfkit. This repo specifically implements the GEKF (https://ietresearch.onlinelibrary.wiley.com/doi/10.1049/iet-spr.2013.0161) and the Belief CBF (https://arxiv.org/abs/2309.06499). Please view our corresponding paper: https://arxiv.org/abs/2510.14100. 
+This repo implements CBF (Control Barrier Function) QPs (Quadtratic Programs) for setpoint and trajectory tracking scenarios. The code in this repo, especially for the sensor and estimator models, was adapted from https://github.com/bardhh/cbfkit. This repo specifically implements the GEKF (https://ietresearch.onlinelibrary.wiley.com/doi/10.1049/iet-spr.2013.0161) and the Belief CBF (https://arxiv.org/abs/2309.06499). Please view our corresponding paper: https://arxiv.org/abs/2510.14100. 
 
 ## Simulation Scripts Overview
 
