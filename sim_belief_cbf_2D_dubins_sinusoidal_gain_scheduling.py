@@ -109,13 +109,13 @@ def solve_qp(b, goal_loc):
     rhs2, L_f_h2, _ = cbf2.h_b_r2_RHS(h_2, L_f_h_2, L_f_2_h_2, cbf_gain)
 
     A = jnp.vstack([
-        jnp.concatenate([-Lg_Lf_h, jnp.array([0.0])]), # -LgLfh u       <= -[alpha1 alpha2].T @ [Lfh h] + Lf^2h
+        jnp.concatenate([-Lg_Lf_h, jnp.array([0.0])]), # -LgLfh u       <= [alpha1 alpha2].T @ [Lfh h] + Lf^2h
         jnp.concatenate([-Lg_Lf_h_2, jnp.array([0.0])]), # 2nd CBF
         jnp.eye(var_dim)
     ])
 
     u = jnp.hstack([
-        (rhs).squeeze(),                            # CBF constraint: rhs = -[alpha1 alpha2].T [Lfh h] + Lf^2h
+        (rhs).squeeze(),                            # CBF constraint: rhs = [alpha1 alpha2].T [Lfh h] + Lf^2h
         (rhs2).squeeze(),                           # 2nd CBF constraint
         U_MAX, 
         jnp.inf # no upper limit on slack
