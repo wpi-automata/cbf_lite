@@ -180,8 +180,8 @@ class DubinsDynamics:
         return jnp.array([
             [0, 0],  # No control influence on x
             [0, 0],  # No control influence on y
-            [1.0, 0],  # v_dot
-            [0, 0.1]   # theta_dot
+            [0.5, 0],  # v_dot
+            [0, 0.05]   # theta_dot
         ])
 
     @partial(jax.jit, static_argnums=0)
