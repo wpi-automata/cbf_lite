@@ -151,7 +151,7 @@ class DubinsDynamics:
         self.state_dim = 4
         """Initialize Dubins Car dynamics."""
         if Q is None:
-            self.Q = jnp.eye(self.state_dim)*0 
+            self.Q = jnp.eye(self.state_dim)*0.25
         else:
             self.Q = Q
 
@@ -180,8 +180,8 @@ class DubinsDynamics:
         return jnp.array([
             [0, 0],  # No control influence on x
             [0, 0],  # No control influence on y
-            [1, 0],  # v_dot
-            [0, 2]   # theta_dot
+            [1.0, 0],  # v_dot
+            [0, 0.1]   # theta_dot
         ])
 
     @partial(jax.jit, static_argnums=0)
