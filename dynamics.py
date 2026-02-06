@@ -170,6 +170,33 @@ class DubinsDynamics:
             [jnp.zeros_like(v)],   # no drift in velocity
             [jnp.zeros_like(theta)]    # theta_dot (no drift)
         ])
+    
+class DubinsDynamics1D:
+    """2D Dubins Car Model with constant velocity and control over heading rate."""
+
+    def __init__(self, Q=None):
+        self.name = "Dubins Dynamics 1D"
+        self.state_dim = 3
+        """Initialize Dubins Car dynamics."""
+        if Q is None:
+            self.Q = jnp.eye(self.state_dim)*0.25
+        else:
+            self.Q = Q
+
+    def f(self, x):
+        """
+        Compute the drift dynamics f(x).
+        
+        State x = [y_pos, v, theta]
+        """
+        v = x[1]
+        theta = x[2]
+        
+        return jnp.array([
+            [v * jnp.sin(2.0*theta)],  # y_dot
+            [jnp.zeros_like(v)],   # no drift in velocity
+            [jnp.zeros_like(theta)]    # theta_dot (no drift)
+        ])
         
     def g(self, x):
         """
@@ -178,10 +205,9 @@ class DubinsDynamics:
         Control u = [lin_vel, ang_vel]
         """
         return jnp.array([
-            [0, 0],  # No control influence on x
             [0, 0],  # No control influence on y
-            [0.5, 0],  # v_dot
-            [0, 0.05]   # theta_dot
+            [0.01, 0],  # v_dot
+            [0, 0.01]   # theta_dot
         ])
 
     @partial(jax.jit, static_argnums=0)

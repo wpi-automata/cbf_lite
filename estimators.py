@@ -8,7 +8,6 @@ class EKF:
     
     def __init__(self, dynamics, h = None, x_init=None, P_init=None, Q=None, R=None):
         self.dynamics = dynamics  # System dynamics model
-        self.K = jnp.zeros((dynamics.state_dim, dynamics.state_dim)) # Ideally, it's shape should be (dynamics.state_dim, obs_dim)
         self.name = "EKF"
 
         # Initialize belief (state estimate)
@@ -16,7 +15,7 @@ class EKF:
 
         # Covariance initialization
         self.P = P_init if P_init is not None else jnp.eye(dynamics.state_dim) * 0.1  
-        self.Q = dynamics.Q # Process noise covariance
+        self.Q = Q if Q is not None else dynamics.Q # Process noise covariance
         self.R = R if R is not None else jnp.eye(dynamics.state_dim) * 0.05  # Measurement noise covariance
 
         self.in_cov = jnp.zeros((dynamics.state_dim, dynamics.state_dim)) # For tracking innovation covariance
@@ -28,23 +27,56 @@ class EKF:
         else:
             self.h = h
 
+        self.H_x = jax.jacfwd(self.h) 
+        self.obs_dim = len(self.H_x(self.x_hat.ravel()))
+        self.K = jnp.array([0.5, 0.5, 0.5]).reshape(self.dynamics.state_dim, self.obs_dim) # Not sure if this matters. Other than for plotting. First Kalman gain get's updated during first measurement.
+
+    @partial(jax.jit, static_argnums=0)   # treat `self` as static config
+    def _predict(self, x_hat, P, u, dt):
+
+        # Nonlinear state propagation
+        f = self.dynamics.x_dot                   # pure function R^n×R^m→R^n (JAX ops only)
+        x_next = x_hat + dt * f(x_hat, u)    # state propagation
+
+        # Compute Jacobian of dynamics (linearization)
+        # F = jax.jacobian(lambda x: (self.dynamics.x_dot(x, u).squeeze()))(x_hat)
+        # if len(F.shape) > 2: 
+        #     F = F.squeeze()
+        
+        # Linearization wrt state (n×n)
+        F = jax.jacfwd(f, argnums=0)(x_hat, u)
+
+        # Covariance udpate 
+        
+        P_dot = F @ P + P @ F.T + self.Q
+        
+        P_new = P + P_dot*dt
+
+        # Symmetrize first (important)
+        P_sym = 0.5 * (P_new + P_new.T)
+
+        # Eigen-decomposition
+        w, V = jnp.linalg.eigh(P_sym)
+
+        # Clamp eigenvalues (negative → 0)
+        w_clamped = jnp.clip(w, a_min=0.0)
+
+        # Reconstruct PSD matrix
+        P_next = V @ jnp.diag(w_clamped) @ V.T
+        # P_next = P_new
+
+        return x_next, P_next
+
+
     def predict(self, u, dt):
         """
         Predict step of EKF.
         
         See (Page 274, Table 5.1, Optimal and Robust Estimation)
         """
-        # Nonlinear state propagation
-        self.x_hat = self.x_hat + dt * self.dynamics.x_dot(self.x_hat, u)
 
-        # Compute Jacobian of dynamics (linearization)
-        F = jax.jacobian(lambda x: (self.dynamics.x_dot(x, u).squeeze()))(self.x_hat)
-
-        # Covariance udpate 
-        if len(F.shape) > 2: 
-            F = F.squeeze()
-        P_dot = F @ self.P + self.P @ F.T + self.Q
-        self.P = self.P + P_dot*dt
+        self.x_hat, self.P = self._predict(self.x_hat, self.P, u, dt)
+        
 
     def update(self, z):
         """
@@ -62,7 +94,7 @@ class EKF:
         
         obs_dim = len(H_x) # Number of rows in H_X == observation space dim
 
-        z_obs = self.h(z) # This might not be technically correct, but here I am just extracting the second state from the measurement
+        z_obs = 1.0 - z # Subtracting from one since model has y flipped (y decreases from right to left)
 
         y = (z_obs - self.h(self.x_hat)) # Innovation term: note self.x_hat comes from identity observation model
         y = jnp.reshape(y, (obs_dim, 1)) 
@@ -87,7 +119,21 @@ class EKF:
         self.sigma_minus = self.P # For computing probability bound
 
         # Update covariance
-        self.P = (jnp.eye(max(self.x_hat.shape)) - self.K @ H_x) @ self.P
+        P_new = (jnp.eye(max(self.x_hat.shape)) - self.K @ H_x) @ self.P
+
+        # Symmetrize first (important)
+        P_sym = 0.5 * (P_new + P_new.T)
+
+        # Eigen-decomposition
+        w, V = jnp.linalg.eigh(P_sym)
+
+        # Clamp eigenvalues (negative → 0)
+        w_clamped = jnp.clip(w, a_min=0.0)
+
+        # Reconstruct PSD matrix
+        self.P = V @ jnp.diag(w_clamped) @ V.T
+
+        return z_obs
 
     def get_belief(self):
         """Return the current belief (state estimate)."""
@@ -132,7 +178,7 @@ class GEKF:
 
         # Covariance initialization
         self.P = P_init if P_init is not None else jnp.eye(dynamics.state_dim) * 0.1  
-        self.Q = dynamics.Q # Process noise covariance
+        self.Q = Q if Q is not None else dynamics.Q  # Process noise covariance
         self.R = R if R is not None else jnp.square(sigma_v)*jnp.eye(dynamics.state_dim) # Measurement noise covariance
          
         self.in_cov = jnp.zeros((dynamics.state_dim, dynamics.state_dim)) # For tracking innovation covariance
@@ -155,7 +201,7 @@ class GEKF:
         self.obs_dim = len(self.H_x(self.x_hat.ravel())) # Number of rows in H_X == observation space dim
 
         # self.obs_dim = int(jnp.size(h(jnp.zeros(self.dynamics.state_dim))))
-        self.K = 0.5*jnp.ones((self.dynamics.state_dim, self.obs_dim)) # Not sure if this matters. Other than for plotting. First Kalman gain get's updated during first measurement.
+        self.K = 0.1*jnp.ones((self.dynamics.state_dim, self.obs_dim)) # Not sure if this matters. Other than for plotting. First Kalman gain get's updated during first measurement.
 
     @partial(jax.jit, static_argnums=0)   # treat `self` as static config
     def _predict(self, x_hat, P, u, dt):
@@ -170,7 +216,7 @@ class GEKF:
         # return x_next, P_next
 
         P_dot = (F @ P + P @ F.T + self.Q)
-        P_new = self.P + P_dot * dt
+        P_new = P + P_dot * dt
 
         # Symmetrize first (important)
         P_sym = 0.5 * (P_new + P_new.T)
