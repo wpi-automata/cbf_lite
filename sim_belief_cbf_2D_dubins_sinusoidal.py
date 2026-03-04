@@ -185,7 +185,6 @@ for t in tqdm(range(T), desc="Simulation Progress"):
     # target_goal_loc = sinusoidal_trajectory(t*dt, A=goal[1], omega=1.0, v=lin_vel)
 
     sol, V = solve_qp_cpu(belief, goal_loc)
-    # sol, V = solve_qp(belief, goal_loc)
 
     clf_values.append(V)
     # cbf_values.append(h)
@@ -226,7 +225,7 @@ for t in tqdm(range(T), desc="Simulation Progress"):
     else:
         eta = 15.0
 
-    traj_idx = update_trajectory_index(x_estimated[0:2], goal_x_nom, traj_idx, eta=eta)
+    traj_idx = update_trajectory_index(x_estimated[0:2], goal_x_nom[:, 0:2], traj_idx, eta=eta)
     goal_loc = goal_x_nom[traj_idx]
 
     # Store for plotting
