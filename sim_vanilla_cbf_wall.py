@@ -1,4 +1,3 @@
-import jax
 import jax.numpy as jnp
 import jax.scipy.linalg as linalg
 import matplotlib.pyplot as plt
@@ -6,27 +5,33 @@ import numpy as np
 from cbfs import vanilla_cbf_wall as cbf
 from cbfs import vanilla_clf_x as clf
 from dynamics import SimpleDynamics
-from estimators import NonlinearEstimator as EKF
+from estimators import EKF
 from jax import grad, jit
 
 # from osqp import OSQP
 from jaxopt import BoxOSQP as OSQP
-from sensor import noisy_sensor as sensor
+from sensor import ubiased_noisy_sensor as sensor
 from tqdm import tqdm
 
 # Define simulation parameters
 dt = 0.01  # Time step
-T = 1000 # Number of steps
-u_max = 5.0
+T = 100 # Number of steps
+dynamics = SimpleDynamics()
+u_dim = ((dynamics.g(jnp.zeros(dynamics.state_dim))).shape)[1] # get control dimension from number of columns in g matrix
+u_max = 5.0*jnp.ones(u_dim)
 
 # Initial state (truth)
 x_true = jnp.array([0.0, 5.0])  # Start position
 goal = jnp.array([6.0, 5.0])  # Goal position
 obstacle = jnp.array([3.0, 0.0])  # Obstacle position
-safe_radius = 0.0  # Safety radius around the obstacle
 
-dynamics = SimpleDynamics()
-estimator = EKF(dynamics, sensor, dt, x_init=x_true)
+# Control Params
+gamma = 10.0  # CLF gain
+alpha = 1.0  # CBF gain
+safe_radius = 0.0  # Safety radius around the obstacle
+clf_slack_penalty = 0.0001
+
+estimator = EKF(dynamics, dt, x_init=x_true)
 
 # Autodiff: Compute Gradients for CLF and CBF
 grad_V = grad(clf, argnums=0)  # ∇V(x)
@@ -44,7 +49,6 @@ def solve_qp(x_estimated):
 
     L_f_V = jnp.dot(grad_V_x, dynamics.f(x_estimated))
     L_g_V = jnp.dot(grad_V_x, dynamics.g(x_estimated))
-    gamma = 1.0  # CLF gain
 
     # Compute CBF components
     h = cbf(x_estimated, obstacle)
@@ -52,30 +56,31 @@ def solve_qp(x_estimated):
 
     L_f_h = jnp.dot(grad_h_x, dynamics.f(x_estimated))
     L_g_h = jnp.dot(grad_h_x, dynamics.g(x_estimated))
-    alpha = 1.0  # CBF gain
 
     # Define QP matrices
-    Q = jnp.eye(2)  # Minimize ||u||^2
-    c = jnp.zeros(2)  # No linear cost term
+    var_dim = u_dim + 1 # number of variables to optimize = ctrl_dim + clf_slack
+    Q = jnp.eye(var_dim)  # Minimize ||u||^2 + 2*rho*clf_slack_penalty
+    Q = Q.at[-1, -1].set(2*clf_slack_penalty) # Q is a diagonal matrix with
+    c = jnp.zeros(var_dim)  # No linear cost term
 
     A = jnp.vstack([
-        L_g_V,   # CLF constraint
-        -L_g_h,   # CBF constraint (negated for inequality direction)
-        jnp.eye(2)
+        jnp.concatenate([-L_g_V, jnp.array([-1.0])]),
+        jnp.concatenate([L_g_h, jnp.array([0.0])]),
+        jnp.eye(var_dim)
     ])
 
     u = jnp.hstack([
         -L_f_V - gamma * V,   # CLF constraint
         L_f_h + alpha * h,     # CBF constraint
-        jnp.inf,
-        u_max 
+        u_max,
+        jnp.inf # No opper limit on clf_slack
     ])
 
     l = jnp.hstack([
         -jnp.inf,
         -jnp.inf,
-        -jnp.inf,
-        -u_max
+        -u_max,
+        0.0 # clf_slack can't be negative
     ])
 
     # Solve the QP using jaxopt OSQP
@@ -94,11 +99,11 @@ x_traj.append(x_true)
 x_estimated, cov = estimator.get_belief()
 
 # Simulation loop
-for _ in tqdm(range(T), desc="Simulation Progress"):
+for t in tqdm(range(T), desc="Simulation Progress"):
     # Solve QP
     sol, V, h = solve_qp(x_estimated)
 
-    u_opt = sol.primal[0]
+    u_opt = sol.primal[0][0:u_dim]
 
     clf_values.append(V)
     cbf_values.append(h)
@@ -107,7 +112,7 @@ for _ in tqdm(range(T), desc="Simulation Progress"):
     x_true = x_true + dt * (dynamics.f(x_true) + dynamics.g(x_true) @ u_opt)
 
     # obtain current measurement
-    x_measured =  sensor(x_true)
+    x_measured =  sensor(x_true, t, 0.01)
 
     # updated estimate 
     estimator.predict(u_opt)
@@ -143,7 +148,6 @@ plt.ylabel("y")
 plt.title("CLF-CBF QP-Controlled Trajectory (Autodiff with JAX)")
 plt.legend()
 plt.grid()
-plt.show()
 
 # Second figure: X component comparison
 plt.figure(figsize=(6, 4))
@@ -154,7 +158,6 @@ plt.xlabel("Time step")
 plt.ylabel("X")
 plt.legend()
 plt.title("X Trajectory")
-plt.show()
 
 # Third figure: Y component comparison
 plt.figure(figsize=(6, 4))
@@ -165,14 +168,12 @@ plt.xlabel("Time step")
 plt.ylabel("Y")
 plt.legend()
 plt.title("Y Trajectory")
-plt.show()
 
 plt.figure(figsize=(6, 4))
 plt.plot(cbf_values)
 plt.xlabel("Time step")
 plt.ylabel("CBF")
 plt.title("CBF")
-plt.show()
 
 plt.figure(figsize=(6, 4))
 plt.plot(clf_values)
