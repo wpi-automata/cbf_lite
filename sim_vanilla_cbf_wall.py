@@ -10,7 +10,7 @@ from jax import grad, jit
 
 # from osqp import OSQP
 from jaxopt import BoxOSQP as OSQP
-from sensor import ubiased_noisy_sensor as sensor
+from sensor import unbiased_noisy_sensor as sensor
 from tqdm import tqdm
 
 # Define simulation parameters

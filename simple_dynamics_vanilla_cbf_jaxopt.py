@@ -8,7 +8,7 @@ from jaxopt import BoxOSQP
 from cbfs import vanilla_cbf_circle as cbf
 from cbfs import vanilla_clf as clf
 from dynamics import SimpleDynamics
-from sensor import ubiased_noisy_sensor as sensor
+from sensor import unbiased_noisy_sensor as sensor
 
 # -----------------------------
 # QP solve via jaxopt.BoxOSQP

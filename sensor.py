@@ -50,7 +50,7 @@ def get_chol(cov, dim):
 
     return L
 
-def ubiased_noisy_sensor(x, t, std, key=None):
+def unbiased_noisy_sensor(x, t, std, key=None):
     """
     Applies additive zero-mean gaussian noise to true state value
 
