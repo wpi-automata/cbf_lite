@@ -4,7 +4,7 @@ import numpy as np
 from cbfs import vanilla_cbf_circle as cbf
 from cbfs import vanilla_clf as clf
 from dynamics import SimpleDynamics
-from sensor import noisy_sensor as sensor
+from sensor import ubiased_noisy_sensor as sensor
 
 # Define simulation parameters
 dt = 0.1  # Time step
@@ -22,9 +22,9 @@ safe_radius = 0.5  # Safety radius around the obstacle
 dynamics = SimpleDynamics()
 
 # Simulation loop
-for _ in range(T):
+for t in range(T):
     # Get reading from sensor
-    x_measured = sensor(x_true)
+    x_measured = sensor(x_true, t, std=0.01)
 
     x_estimated = x_measured
 
