@@ -28,7 +28,6 @@ def simulate_run(run, estimator_name):
     # Initial state (truth)
     x_true = jnp.array([x_init])  # Start position
     goal = jnp.array([goal_x])  # Goal position
-    obstacle = jnp.array([wall_x])  # Wall
 
     dynamics = NonLinearSingleIntegrator1D() 
 

@@ -11,6 +11,7 @@ from cbfs import vanilla_clf_x as clf
 from dynamics import *
 from estimators import *
 from sensor import noisy_sensor_mult as sensor
+from scipy.stats import chi2
 
 # Define simulation parameters
 dt = 0.001 # Time step
@@ -131,6 +132,8 @@ clf_values = []
 cbf_values = []
 kalman_gains = []
 covariances = []
+NEES_list = []
+NIS_list = []
 
 x_estimated, p_estimated = estimator.get_belief()
 
@@ -177,6 +180,8 @@ for t in tqdm(range(T), desc="Simulation Progress"):
     x_est.append(x_estimated)
     kalman_gains.append(estimator.K)
     covariances.append(p_estimated)
+    NEES_list.append(estimator.NEES(x_true))
+    NIS_list.append(estimator.NIS())
 
 # Convert to JAX arrays
 x_traj = jnp.array(x_traj)
@@ -203,7 +208,6 @@ plt.ylabel("y (zeroed)", fontsize=14)
 plt.title("1D X-Trajectory (CLF-CBF QP-Controlled)", fontsize=14)
 plt.legend()
 plt.grid()
-plt.show()
 
 # Second figure: X component comparison
 plt.figure(figsize=(10, 10))
@@ -225,7 +229,6 @@ plt.xticks(fontsize=14)
 plt.yticks(fontsize=14)
 plt.legend(fontsize=14)
 plt.title("X position (m)", fontsize=18)
-plt.show()
 
 # # Plot controls
 # plt.figure(figsize=(6, 4))
@@ -242,19 +245,41 @@ plt.show()
 # plt.legend(fontsize=14)
 # plt.show()
 
-# kalman_gain_traces = [jnp.trace(K) for K in kalman_gains]
-# covariance_traces = [jnp.trace(P) for P in covariances]
+kalman_gain_traces = [jnp.trace(K) for K in kalman_gains]
+covariance_traces = [jnp.trace(P) for P in covariances]
 
-# # Plot trace of Kalman gains and covariances
-# plt.figure(figsize=(6, 4))
-# plt.plot(time, np.array(kalman_gain_traces), "b-", label="Trace of Kalman Gain")
-# plt.plot(time, np.array(covariance_traces), "r-", label="Trace of Covariance")
-# plt.xlabel("Time Step (s)")
-# plt.ylabel("Trace Value")
-# plt.title(f"Trace of Kalman Gain and Covariance Over Time ({estimator.name})")
-# plt.legend()
-# plt.grid()
-# plt.show()
+# Plot trace of Kalman gains and covariances
+plt.figure(figsize=(10, 10))
+plt.plot(time, np.array(kalman_gain_traces), "b-", label="Trace of Kalman Gain")
+plt.plot(time, np.array(covariance_traces), "r-", label="Trace of Covariance")
+plt.xlabel("Time Step (s)")
+plt.ylabel("Trace Value")
+plt.title(f"Trace of Kalman Gain and Covariance Over Time ({estimator.name})")
+plt.legend()
+plt.grid()
+
+
+# Plot NEES/NIS
+
+fig, ax = plt.subplots(figsize=(10, 10))
+
+state_dim = dynamics.state_dim
+confidence = 0.95
+alpha = 1 - confidence
+lower = chi2.ppf(alpha/2, df=state_dim)
+upper = chi2.ppf(1 - alpha/2, df=state_dim)
+
+ax.axhline(lower, color="red", linestyle="--", label=f"Lower {confidence*100:.1f}% bound")
+ax.axhline(upper, color="green", linestyle="--", label=f"Upper {confidence*100:.1f}% bound")
+ax.axhline(state_dim, color="purple", linestyle="--", label="Expected value")
+ax.plot(time, np.array(NEES_list), linestyle="-", label="NEES")
+ax.set_xlabel("Time [s]")
+ax.set_ylabel("NEES value")
+ax.set_title(f"NEES over Time ({estimator.name})")
+ax.legend()
+ax.grid(True)
+
+plt.show()
 
 
 # # Plot distance from obstacle
