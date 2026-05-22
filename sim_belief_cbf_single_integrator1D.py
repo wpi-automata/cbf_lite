@@ -16,7 +16,7 @@ from scipy.stats import chi2
 # Define simulation parameters
 dt = 0.001 # Time step
 T = 5000 # Number of steps
-u_max = 10.0
+u_max = 1.0
 
 # Obstacle
 wall_x = 5.0
@@ -48,8 +48,8 @@ sigma_v = jnp.sqrt(0.0005)
 # sigma_v = jnp.sqrt(7.97e-5)
 
 x_initial_measurement = sensor(x_true, 0, mu_u, sigma_u, mu_v, sigma_v)
-# estimator = GEKF(dynamics, dt, mu_u, sigma_u, mu_v, sigma_v, x_init=x_initial_measurement)
-estimator = EKF(dynamics, dt, x_init=x_initial_measurement, R=jnp.square(sigma_v)*jnp.eye(dynamics.state_dim))
+estimator = GEKF(dynamics, dt, mu_u, sigma_u, mu_v, sigma_v, x_init=x_initial_measurement)
+# estimator = EKF(dynamics, dt, x_init=x_initial_measurement, R=jnp.square(sigma_v)*jnp.eye(dynamics.state_dim))
 
 # Define belief CBF parameters
 n = dynamics.state_dim
@@ -192,6 +192,15 @@ x_meas = np.array(x_meas)
 x_est = np.array(x_est)
 
 time = dt*np.arange(T)  # assuming x_meas.shape[0] == N
+
+save_dict = {
+    "x_traj": np.array(x_traj).squeeze(),
+    "x_meas": np.array(x_meas).squeeze(),
+    "x_est": np.array(x_est).squeeze(),
+    "time": dt * np.arange(T),
+}
+
+np.savez(f"single_int_{estimator.name}.npz", **save_dict)
 
 # Plot trajectory with y-values set to zero
 plt.figure(figsize=(6, 6))
